@@ -5,16 +5,42 @@ def test_fninputs():
         return x + y
     assert fninputs(f) == ('x', 'y')
 
+    def f(x, y):
+        z = x + y
+        return z
+    assert fninputs(f) == ('x', 'y')
+
 def test_run():
     dag = {'a': lambda x, y: x + y,
            'm': lambda x, y: x * y,
            'result': lambda a, m: max(a, m),
            'not_run': lambda m, x, result: 1/0}
 
-    ins = {'x': 1,  'y': 2}
+    assert run(dag, ('result',), x=1, y=2) == (3,)
 
-    assert run(dag, ins, ('result',)) == (3,)
-    assert run(dag, ins, ('a', 'm', 'result')) == (3, 2, 3)
+    ins = {'x': 1,  'y': 2}
+    assert run(dag, ('result',), **ins) == (3,)
+
+    assert run(dag, ('a', 'm', 'result'), **ins) == (3, 2, 3)
+
+def test_stats():
+    dag = {'n': lambda xs: len(xs),
+           'm': lambda xs, n: sum(xs) / n,
+           'm2': lambda xs, n: sum([x**2 for x in xs]) / n,
+           'v': lambda m, m2: m2 - m**2}
+
+    assert run(dag, ('m', 'm2', 'v'), xs=[1, 2, 3, 6]) == (3, 12, 3)
+
+def test_compile():
+    dag = {'a': lambda x, y: x + y,
+           'm': lambda x, y: x * y,
+           'result': lambda a, m: max(a, m),
+           'not_run': lambda m, x, result: 1/0}
+    ins = ('x', 'y')
+    outs = ('m', 'result')
+
+    fn = compile(dag, ins, outs)
+    assert fn(1, 2) == (2, 3)
 
 def test_prismatic_example():
     dag = {'n': lambda xs: len(xs),
@@ -22,6 +48,8 @@ def test_prismatic_example():
            'm2': lambda xs, n: float(sum([x*x for x in xs])) / n,
            'v': lambda m, m2: (m2 - m * m)}
 
-    ins = {'xs': [1, 2, 3, 4, 5]}
+    ins = ('xs',)
+    outs = ('v',)
+    fn = compile(dag, ins, outs)
+    assert fn([1, 2, 3, 4, 5]) == (2,)
 
-    assert run(dag, ins, ('v',)) == (2,)

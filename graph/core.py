@@ -4,25 +4,37 @@ def fninputs(f):
     >>> fninputs(lambda x, y: x + y)
     ('x', 'y')
     """
-    return f.func_code.co_varnames
+    return f.func_code.co_varnames[:f.func_code.co_argcount]
 
-def run(dag, inputs, results):
+def run(dag, results, **inputs):
     """ Execute a computation
 
     >>> dag = {'a': lambda x, y: x + y,
     ...        'm': lambda x, y: x * y,
     ...        'z': lambda a, m: max(a, m)}
-    >>> run(dag, {'x', 1, 'y': 2}, ('m', 'z'))
+    >>> run(dag, ('m', 'z'), x=1, y=2})
     (2, 3)
     """
     knowns = inputs.copy()
     def compute(var):
         if var in knowns:
             return knowns[var]
-        fn = dag[var]
-        for inp in fninputs(fn):
-            if inp not in knowns:
-                knowns[inp] = compute(inp)
-        knowns[var] = fn(*[knowns[inp] for inp in fninputs(fn)])
-        return knowns[var]
+        else:
+            fn = dag[var]
+            unknowns = filter(lambda x: x not in knowns, fninputs(fn))
+            knowns.update(dict(zip(unknowns, map(compute, unknowns))))
+            return fn(*[knowns[inp] for inp in fninputs(fn)])
     return tuple(map(compute, results))
+
+def compile(dag, inputs, outputs):
+    """ Build a callable function from a DAG
+
+    >>> dag = {'a': lambda x, y: x + y,
+    ...        'm': lambda x, y: x * y,
+    ...        'z': lambda a, m: max(a, m)}
+
+    >>> fn = compile(dag, ('x', 'y'), ('m', 'z'))
+    >>> fn(1, 2)
+    (2, 3)
+    """
+    return lambda *args: run(dag, outputs, **dict(zip(inputs, args)))
