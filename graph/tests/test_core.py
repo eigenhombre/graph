@@ -15,3 +15,13 @@ def test_run():
 
     assert run(dag, ins, ('result',)) == (3,)
     assert run(dag, ins, ('a', 'm', 'result')) == (3, 2, 3)
+
+def test_prismatic_example():
+    dag = {'n': lambda xs: len(xs),
+           'm': lambda xs, n: float(sum(xs)) / n,
+           'm2': lambda xs, n: float(sum([x*x for x in xs])) / n,
+           'v': lambda m, m2: (m2 - m * m)}
+
+    ins = {'xs': [1, 2, 3, 4, 5]}
+
+    assert run(dag, ins, ('v',)) == (2,)
